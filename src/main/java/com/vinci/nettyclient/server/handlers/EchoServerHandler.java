@@ -15,20 +15,28 @@
  */
 package com.vinci.nettyclient.server.handlers;
 
+import com.vinci.nettyclient.client.entity.RemotingCommand;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.SimpleChannelInboundHandler;
 
 /**
  * Handler implementation for the echo server.
  */
 @Sharable
-public class EchoServerHandler extends ChannelInboundHandlerAdapter {
+public class EchoServerHandler extends SimpleChannelInboundHandler<RemotingCommand> {
 
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        System.out.println("test:" + msg);
-        ctx.write("recevied: " + msg);
+    protected void channelRead0(ChannelHandlerContext ctx, RemotingCommand msg) throws Exception {
+        final RemotingCommand cmd = msg;
+       /* if (cmd.getId() == 0) {
+            ctx.write("sdfsdfsdf");
+        } else {*/
+            System.out.println(cmd.toString());
+            cmd.setRemark(cmd.getRemark() + ": server acquired!");
+            ctx.write(cmd);
+//        }
     }
 
     @Override

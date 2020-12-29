@@ -22,6 +22,7 @@ import org.springframework.stereotype.Component;
 import javax.annotation.PostConstruct;
 import java.net.SocketAddress;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.lang.String.format;
 
@@ -30,15 +31,16 @@ import static java.lang.String.format;
  */
 
 @Component
-public class UpNettyClient {
+public class NettyClient {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(UpNettyClient.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(NettyClient.class);
 
     private static final String REDIS_KEY = "CHANNEL_UP_POS_SESSION_KEY";
+    private static AtomicInteger requestId = new AtomicInteger(0);
 
     @Value("${up.connection.host:127.0.0.1}")
     private String host;
-    @Value("${up.connection.port:9999}")
+    @Value("${up.connection.port:8007}")
     private int port;
 
     private Bootstrap bootstrap;
@@ -51,11 +53,11 @@ public class UpNettyClient {
     private final ConcurrentHashMap<Integer, ResponseFuture> responseMatcherMap = new ConcurrentHashMap<>(256);
 
     @Autowired
-    public UpNettyClient() {
+    public NettyClient() {
         this(new ExponentialBackOffRetry(1000, Integer.MAX_VALUE, 60 * 1000));
     }
 
-    public UpNettyClient(RetryPolicy retryPolicy) {
+    public NettyClient(RetryPolicy retryPolicy) {
         this.retryPolicy = retryPolicy;
         config();
     }
@@ -70,11 +72,12 @@ public class UpNettyClient {
 
         if (channel != null && channel.isActive()) {
             final SocketAddress addr = channel.remoteAddress();
-            int opaque = request.getOpaque();
+            final int opaque = requestId.getAndIncrement();
+            request.setOpaque(opaque);
             try {
                 final ResponseFuture responseFuture = new ResponseFuture(this.channel, opaque, timeoutMillis, null, null);
                 this.responseMatcherMap.put(opaque, responseFuture);
-
+                LOGGER.info("prepare to send request: {}", request.toString());
                 channel.writeAndFlush(request).addListener((ChannelFutureListener) f -> {
                     if (f.isSuccess()) {
                         responseFuture.setSendRequestOK(true);
@@ -124,9 +127,47 @@ public class UpNettyClient {
         synchronized (bootstrap) {
             LOGGER.info("Prepare to connect {}:{} .", host, port);
             ChannelFuture future = bootstrap.connect(host, port);
-            LOGGER.info("Connected, {}:{} .", host, port);
             future.addListener(getConnectionListener());
             this.channel = future.channel();
+        }
+    }
+
+    public void afterConnectInvoke() {
+        RemotingCommand singonRequest = new RemotingCommand();
+        singonRequest.setId(1);
+        singonRequest.setRemark("登陆请求:2222222 request！");
+        RemotingCommand remotingCommand = null;
+        try {
+            remotingCommand = this.invokeSync0(singonRequest, 30000);
+
+            if (remotingCommand != null) {
+                RemotingCommand keyRequest = new RemotingCommand();
+                keyRequest.setId(2);
+                keyRequest.setRemark("key请求:keykeykey request！");
+                RemotingCommand keyResponse = this.invokeSync0(keyRequest, 30000);
+                System.out.println(keyResponse.toString() + "hahahhahahhahahaaaaaaaaaaaaaaaaaa");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOGGER.warn("Send request is interrupted after first connected or reconnected.", e);
+        } catch (RemotingTimeoutException e) {
+            LOGGER.warn("Send request is timeout after first connected or reconnected", e);
+        } catch (RemotingSendRequestException e) {
+            LOGGER.warn("Send request is broken after first connected or reconnected", e);
+        } catch (RemotingConnectException e) {
+            LOGGER.warn("Send request `s channel is inactive after first connected or reconnected", e);
+        }
+    }
+
+    public void sendHeartBeat() throws InterruptedException, RemotingTimeoutException, RemotingSendRequestException, RemotingConnectException {
+        RemotingCommand singonRequest = new RemotingCommand();
+        singonRequest.setId(0);
+        singonRequest.setRemark("心跳请求:2222222 request！");
+        RemotingCommand remotingCommand = null;
+        remotingCommand = this.invokeSync0(singonRequest, 30000);
+
+        if (remotingCommand != null) {
+            LOGGER.info("heartBeat success! {}", remotingCommand.toString());
         }
     }
 
@@ -140,7 +181,7 @@ public class UpNettyClient {
         bootstrap = new Bootstrap();
         bootstrap.group(group)
                 .channel(NioSocketChannel.class)
-                .handler(new ClientHandlersInitializer(UpNettyClient.this));
+                .handler(new ClientHandlersInitializer(NettyClient.this));
     }
 
     private ChannelFutureListener getConnectionListener() {
@@ -153,7 +194,7 @@ public class UpNettyClient {
 
 
     public static void main(String[] args) {
-        UpNettyClient tcpClient = new UpNettyClient();
+        NettyClient tcpClient = new NettyClient();
         tcpClient.connect();
     }
 

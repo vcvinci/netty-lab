@@ -11,14 +11,14 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 
-public class UpDecoder extends LengthFieldBasedFrameDecoder {
+public class Decoder extends LengthFieldBasedFrameDecoder {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(UpDecoder.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Decoder.class);
 
     private static final int FRAME_MAX_LENGTH =
             Integer.parseInt(System.getProperty("com.opay.remoting.frameMaxLength", "16777216"));
 
-    public UpDecoder() {
+    public Decoder() {
         super(FRAME_MAX_LENGTH, 0, 2, 0, 0);
     }
 
@@ -36,7 +36,7 @@ public class UpDecoder extends LengthFieldBasedFrameDecoder {
             return RemotingHelper.decode(byteBuffer);
         } catch (Exception e) {
             String addrRemote = RemotingHelper.parseChannelRemoteAddr(ctx.channel());
-            LOGGER.error("decode exception, " + addrRemote, e);
+            LOGGER.error("decode exception {}", addrRemote, e);
             ctx.channel().close().addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {

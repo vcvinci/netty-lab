@@ -1,13 +1,14 @@
 package com.vinci.nettyclient.server;
 
 import com.vinci.nettyclient.server.handlers.EchoServerHandler;
+import com.vinci.nettyclient.server.handlers.ServerDecoder;
+import com.vinci.nettyclient.server.handlers.ServerEecoder;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.string.StringDecoder;
-import io.netty.handler.codec.string.StringEncoder;
+import io.netty.handler.codec.LengthFieldPrepender;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.SslContext;
@@ -47,8 +48,10 @@ public final class EchoServer {
                                 p.addLast(sslCtx.newHandler(ch.alloc()));
                             }
                             //p.addLast(new LoggingHandler(LogLevel.INFO));
-                            p.addLast(new StringDecoder());
-                            p.addLast(new StringEncoder());
+                            p.addLast("frameEncoder", new LengthFieldPrepender(2));
+                            p.addLast("decoder", new ServerDecoder());
+                            p.addLast("encoder", new ServerEecoder());
+                            //p.addLast("frameDecoder", new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 2, 0, 0));
                             p.addLast(serverHandler);
                         }
                     });

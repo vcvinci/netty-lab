@@ -8,9 +8,9 @@ import io.netty.handler.codec.MessageToByteEncoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class UpEecoder extends MessageToByteEncoder<RemotingCommand> {
+public class Eecoder extends MessageToByteEncoder<RemotingCommand> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(UpEecoder.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Eecoder.class);
 
     @Override
     public void encode(ChannelHandlerContext ctx, RemotingCommand remotingCommand, ByteBuf out)
